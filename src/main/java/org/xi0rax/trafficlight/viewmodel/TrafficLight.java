@@ -11,6 +11,7 @@ public class TrafficLight implements Runnable {
         this.setRedInterval(3);
         this.setYellowInterval(1);
         this.setGreenInterval(6);
+        this.setYellowBlinkInterval(1);
         this.controlMode = ControlModes.AUTO;
         this.operateMode = OperateModes.NORMAL;
     }
@@ -92,10 +93,10 @@ public class TrafficLight implements Runnable {
     private void switchSignal() {
         switch (this.operateMode) {
             case NIGHT:
-                if (this.signal == Signals.YELLOW_BLINK) {
+                if (this.signal == Signals.BLINK) {
                     this.signal = Signals.YELLOW;
                 } else {
-                    this.signal = Signals.YELLOW_BLINK;
+                    this.signal = Signals.BLINK;
                 }
                 break;
             case NORMAL:
@@ -118,7 +119,7 @@ public class TrafficLight implements Runnable {
                 return yellowInterval;
             case GREEN:
                 return greenInterval;
-            case YELLOW_BLINK:
+            case BLINK:
                 return yellowBlinkInterval;
             default:
                 return 0;
@@ -130,7 +131,7 @@ public class TrafficLight implements Runnable {
         while (this.isPower()) {
             try {
                 if (controlMode == ControlModes.AUTO) {
-                    Thread.sleep(getSignalInterval(this.signal));
+                    Thread.sleep(getSignalInterval(this.signal) * 1000L);
                     switchSignal();
                 }
             } catch (InterruptedException exception) {

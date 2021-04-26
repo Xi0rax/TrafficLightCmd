@@ -1,17 +1,22 @@
 package org.xi0rax.trafficlight.viewmodel;
 
-import org.xi0rax.trafficlight.interfaces.Command;
 import org.xi0rax.trafficlight.enums.ControlModes;
 import org.xi0rax.trafficlight.enums.OperateModes;
 import org.xi0rax.trafficlight.enums.Signals;
+import org.xi0rax.trafficlight.interfaces.Command;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class TrafficModel {
+    Timer timer = new Timer();
+    MonitorTask monitor = null;
+
     public TrafficModel() {
         this.commands = new HashMap<String, Command>() {
             {
@@ -25,6 +30,17 @@ public class TrafficModel {
                 put("getstate", new GetState());
                 put("exit", new Shutdown());
                 put("help", new Help());
+                put("flush", new Flush());
+                put("monitor", new Monitor());
+                put("", args -> {
+                    if (monitor != null) {
+                        monitor.cancel();
+                        monitor = null;
+                        return "Interrupted";
+                    }
+                    return "";
+                });
+                put("tllist", new TrafficLightList());
             }
         };
     }
@@ -56,6 +72,51 @@ public class TrafficModel {
         }
     }
 
+    public class TrafficLightList implements Command {
+        @Override
+        public String execute(String[] args) {
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < trafficLights.size(); i++) {
+                result.append("Traffic Light ").append(i).append('\n');
+            }
+            return result.toString();
+        }
+    }
+
+    public class MonitorTask extends TimerTask {
+        private Command command;
+        private String[] args;
+
+        public MonitorTask(Command command, String[] args) {
+            this.command = command;
+            this.args = args;
+        }
+
+        @Override
+        public void run() {
+            try {
+                if (System.getProperty("os.name").contains("Windows")) {
+                    new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
+                } else {
+                    Runtime.getRuntime().exec("clear");
+                }
+            } catch (java.io.IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println(command.execute(args));
+        }
+    }
+
+    private class Monitor implements Command {
+        @Override
+        public String execute(String[] args) {
+            monitor = new MonitorTask(commands.get("getstate"), args);
+            timer.scheduleAtFixedRate(monitor, 0,
+                    Integer.parseInt(args[1]) * 1000L);
+            return "monitoring traffic light " + args[0] + "...........";
+        }
+    }
+
     private class SetSigInterval implements Command {
         @Override
         public String execute(String[] args) {
@@ -77,7 +138,7 @@ public class TrafficModel {
                         trafficLight.setGreenInterval(Integer.parseInt(args[2]));
                         break;
                     case "3":
-                        signal = "yellow_blink";
+                        signal = "blink";
                         trafficLight.setYellowBlinkInterval(Integer.parseInt(args[2]));
                         break;
                     default:
@@ -181,22 +242,22 @@ public class TrafficModel {
                 StringBuilder result = new StringBuilder("+---+\t\t+-----------------------+\t+-----------------------+\n")
                         .append("|(").append(state == 0 ? 1 : 0).append(")| R\t\t|TrafficLight ")
                         .append(args[0])
-                        .append((" State\t|\t|Signal Intervals\t\t|\n"))
+                        .append((" State\t|\t|Signal Intervals\t|\n"))
                         .append("|   |\t\t+-----------------------+\t+-----------------------+\n")
                         .append("|(").append(state == 1 ? 1 : 0).append(")| Y\t\t|Power: ")
-                        .append(trafficLight.isPower()).append("\t\t\t|\t|Red: ")
-                        .append(trafficLight.getRedInterval()).append(" sec\t\t\t\t|\n")
+                        .append(trafficLight.isPower()).append("\t\t|\t|Red: ")
+                        .append(trafficLight.getRedInterval()).append(" sec\t\t|\n")
                         .append("|   |\t\t|Control Mode: ")
                         .append(trafficLight.getControlMode().name()).append(" \t|\t|Yellow: ")
-                        .append(trafficLight.getYellowInterval()).append(" sec\t\t\t|\n")
+                        .append(trafficLight.getYellowInterval()).append(" sec\t\t|\n")
                         .append("|(")
                         .append(state == 2 ? 1 : 0).append(")| G\t\t|Operating Mode: ")
                         .append(trafficLight.getOperateMode().name()).append("\t|\t|Green: ")
-                        .append(trafficLight.getGreenInterval()).append(" sec\t\t\t|\n")
+                        .append(trafficLight.getGreenInterval()).append(" sec\t\t|\n")
                         .append("+---+\t\t|Current Signal: ")
                         .append(trafficLight.getSignal().name()).append("\t|\t|NightYellow: ")
-                        .append(trafficLight.getYellowBlinkInterval()).append(" sec\t\t|\n")
-                        .append("  |\t\t\t+-----------------------+\t+-----------------------+");
+                        .append(trafficLight.getYellowBlinkInterval()).append(" sec\t|\n")
+                        .append("  |\t\t+-----------------------+\t+-----------------------+");
                 return result.toString();
             } else {
                 return "Error: too few parameters";
@@ -209,8 +270,17 @@ public class TrafficModel {
         public String execute(String[] args) {
             for (TrafficLight trafficLight : trafficLights) {
                 trafficLight.setPower(false);
+
             }
+            timer.cancel();
             return "halted";
+        }
+    }
+
+    private class Flush implements Command {
+        @Override
+        public String execute(String[] args) {
+            return "CLEAR";
         }
     }
 

@@ -21,6 +21,17 @@ public class TrafficView {
             if (buffer.equals("halted")) {
                 this.flag = !this.flag;
             }
+            if (buffer.equals("CLEAR")) {
+                try {
+                    if (System.getProperty("os.name").contains("Windows")) {
+                        new ProcessBuilder("cmd", "/c", "cls").inheritIO().start().waitFor();
+                    } else {
+                        Runtime.getRuntime().exec("clear");
+                    }
+                } catch (java.io.IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }
